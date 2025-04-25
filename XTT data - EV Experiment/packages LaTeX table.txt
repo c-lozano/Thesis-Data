@@ -1,0 +1,32 @@
+
+\begin{tabular}{l|l|l}
+\hline
+Package name & Version & Maintainer\\
+\hline
+knitr & 1.49 & Yihui Xie <xie@yihui.name>\\
+\hline
+pacman & 0.5.1 & Tyler Rinker <tyler.rinker@gmail.com>\\
+\hline
+patchwork & 1.3.0 & Thomas Lin Pedersen <thomasp85@gmail.com>\\
+\hline
+lubridate & 1.9.4 & Vitalie Spinu <spinuvit@gmail.com>\\
+\hline
+forcats & 1.0.0 & Hadley Wickham <hadley@rstudio.com>\\
+\hline
+stringr & 1.5.1 & Hadley Wickham <hadley@posit.co>\\
+\hline
+dplyr & 1.1.4 & Hadley Wickham <hadley@posit.co>\\
+\hline
+purrr & 1.0.2 & Hadley Wickham <hadley@rstudio.com>\\
+\hline
+readr & 2.1.5 & Jennifer Bryan <jenny@posit.co>\\
+\hline
+tidyr & 1.3.1 & Hadley Wickham <hadley@posit.co>\\
+\hline
+tibble & 3.2.1 & Kirill Müller <kirill@cynkra.com>\\
+\hline
+ggplot2 & 3.5.1 & Thomas Lin Pedersen <thomas.pedersen@posit.co>\\
+\hline
+tidyverse & 2.0.0 & Hadley Wickham <hadley@rstudio.com>\\
+\hline
+\end{tabular}
