@@ -26,8 +26,8 @@ absorb <- read_csv('all.csv') |> drop_na() |>
   mutate(Treatment=str_replace_all(Treatment,"PBS","No EVs")) |> 
   mutate(Treatment=str_replace_all(Treatment,"Ctrl","Control")) |> 
   mutate(Treatment=str_replace_all(Treatment,"Pt3","PKD2 truncating")) |> 
-  mutate(Treatment=str_replace_all(Treatment,"Pt9","PKD1 non-truncating")) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','Control','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=str_replace_all(Treatment,"Pt9","PKD1 truncating")) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','Control','PKD1 truncating','PKD2 truncating'))) |> 
   mutate(Dose=factor(Dose,levels=c('0','10','50','100')))
 
 absorbOrig <- absorb
@@ -212,7 +212,7 @@ names(lineCols2)[2] <- 'No mutation'
 
 foldMeansPlot <- meanLogFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
@@ -231,7 +231,7 @@ if(plotWindow) foldMeansPlot
 
 foldMeansPlotSepTreat <- meanLogFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Treatment))+
   geom_point(size=2)+
@@ -249,7 +249,7 @@ if(plotWindow) foldMeansPlotSepTreat
 
 foldMeansPlotSepDose <- meanLogFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
@@ -265,7 +265,7 @@ if(plotWindow) foldMeansPlotSepDose
 
 foldMeansPlotSepDoseSingle <- meanLogFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
@@ -280,7 +280,7 @@ if(plotWindow) foldMeansPlotSepDoseSingle
 
 foldMeansPlotSepDoseSingleExp <- meanLogFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
@@ -385,7 +385,7 @@ i <- 1
 for(h in 2:3){
   for(d in 2:4){
     PKD1 <- relAbs |> 
-      filter(Hours==hrs[h] & Dose==doses[d] & Treatment=='PKD1 non-truncating') |> 
+      filter(Hours==hrs[h] & Dose==doses[d] & Treatment=='PKD1 truncating') |> 
       ungroup() |> 
       select(RelPercent) |> 
       pull()
@@ -429,7 +429,7 @@ labelsP2 <- sigTestsP2 |>
 
 meanRelAbsPlotSepDose <- meanRelAbs |>
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=`Mean Abs`/100,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller = 'doseNamer')+
   geom_point(size=2)+
@@ -506,7 +506,7 @@ sigTestsDose <- sigTestsDose |>
 
 sigTestsDose <- sigTestsDose |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD2 truncating','PKD1 non-truncating')))
+  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD1 truncating','PKD2 truncating')))
 
 labelsDose1 <- sigTestsDose |> 
   filter(`Low dose`=='10') |> 
@@ -520,7 +520,7 @@ labelsDose2 <- sigTestsDose |>
 
 meanRelAbsPlotSepTreat <- meanRelAbs |>
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
-  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD2 truncating','PKD1 non-truncating'))) |> 
+  mutate(Treatment=factor(Treatment,levels=c('No mutation','PKD1 truncating','PKD2 truncating'))) |> 
   ggplot(aes(x=Hours,y=`Mean Abs`/100,color=Treatment))+ 
   facet_grid(cols=vars(Treatment))+
   geom_point(size=2)+
