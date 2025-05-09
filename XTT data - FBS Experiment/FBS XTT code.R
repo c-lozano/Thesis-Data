@@ -1,10 +1,12 @@
 # Setup ####
 
 library(tidyverse)
+library(twopartm,include.only = 'FiellerRatio')
 library(patchwork)
+library(ggsignif)
 
-overwrite <- F # Change to TRUE to overwrite plots in /../figures/ with new plots
-plotWindow <- F # Change to TRUE to show plots in RStudio window
+overwrite <- F
+plotWindow <- F
 
 
 # Data Wrangling ####
@@ -45,6 +47,7 @@ absorbPlotting <- absorb |>
 
 absPlot <- absorbPlotting |> 
   ggplot(aes(x=Hours,y=`Abs`,color=`Serum condition`))+
+  # facet_wrap(~`Serum condition`)+
   geom_point(aes(shape=plot))+
   scale_x_continuous(breaks=c(0,hrs),limits=c(0,max(hrs)+2))+
   scale_y_continuous(limits=c(0,max(absorbPlotting$Abs)))+
@@ -65,6 +68,17 @@ meanFunk <- function(x,i){mean(x[i])} # for boot
 se <- function(data,times=2000){
   b <- boot::boot(data,meanFunk,times)
   return(sd(b$t))
+}
+
+seFC <- function(A,A0){
+  FC <- mean(A)/mean(A0)
+  if(length(A)!=length(A0)){
+    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2) / length(A) )
+  }
+  else{
+    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2 + 2*cov(A,A0)/(mean(A)*mean(A0))) / length(A) )
+  }
+  return(err)
 }
 
 means <- absorbPlotting |> 
@@ -90,23 +104,25 @@ if(plotWindow) absMeansPlot
 init <- absorb |> 
   filter(Hours==2) |> 
   select(Abs) |> 
-  pull() |> 
-  mean()
+  pull()
 
 folds <- absorb |> 
   filter(Hours!=2) |> 
-  mutate('Fold change'=Abs/init) |> 
-  select(!Abs)
+  mutate('Fold change'=Abs/mean(init))
 
 folds2 <- list()
 for(c in 1:length(conds)){
   folds2[[c]] <- absorb |> 
     filter(Hours==2) |> 
-    mutate('Fold change'=Abs/init) |> 
-    mutate('Serum condition'=conds[c]) |> 
-    select(!Abs)
+    mutate('Fold change'=Abs/mean(init)) |> 
+    mutate('Serum condition'=conds[c])
 }
 folds2 <- bind_rows(folds2)
+
+foldsPlotting <- folds |> 
+  bind_rows(folds2) |> 
+  rowwise() |> 
+  mutate(plot=any(Hours!=2,`Serum condition`=='10.0%'))
 
 
 ## All log fold changes ####
@@ -120,6 +136,7 @@ logFoldsPlotting <- folds |>
 
 logFoldsPlot <- logFoldsPlotting |> 
   ggplot(aes(x=Hours,y=`Log fold change`,color=`Serum condition`))+
+  # facet_wrap(~`Serum condition`)+
   geom_point(aes(shape=plot))+
   scale_x_continuous(breaks=c(0,hrs),limits=c(-2,max(hrs)+4))+
   scale_y_continuous(limits=c(min(logFoldsPlotting$`Log fold change`),
@@ -140,8 +157,8 @@ if(plotWindow) logFoldsPlot
 meanLogFolds <- logFoldsPlotting |> 
   group_by(Hours,`Serum condition`) |> 
   summarise('Mean log fold change'=mean(`Log fold change`),
-            'errBar min'=`Mean log fold change` - se(`Log fold change`),
-            'errBar max'=`Mean log fold change` + se(`Log fold change`)) |> 
+            'CI min'=`Mean log fold change` - se(`Log fold change`),
+            'CI max'=`Mean log fold change` + se(`Log fold change`)) |> 
   rowwise() |> 
   mutate(plot=any(Hours!=2,`Serum condition`=='10.0%'))
 
@@ -149,7 +166,7 @@ logFoldMeansPlot <- meanLogFolds |>
   ggplot(aes(x=Hours,y=`Mean log fold change`,color=`Serum condition`))+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`CI min`, ymax=`CI max`),width=max(hrs)/10)+
   scale_x_continuous(breaks=c(0,hrs),limits=c(-2,max(hrs)+4))+
   scale_y_continuous(limits=c(min(logFoldsPlotting$`Log fold change`),
                               max(logFoldsPlotting$`Log fold change`)+0.2))+
@@ -161,12 +178,13 @@ if(plotWindow) logFoldMeansPlot
 
 ## All fold changes ####
 
-foldsPlot <- logFoldsPlotting |> 
-  ggplot(aes(x=Hours,y=2^`Log fold change`,color=`Serum condition`))+
+foldsPlot <- foldsPlotting |> 
+  ggplot(aes(x=Hours,y=`Fold change`,color=`Serum condition`))+
+  # facet_wrap(~`Serum condition`)+
   geom_point(aes(shape=plot))+
   scale_x_continuous(breaks=c(0,hrs),limits=c(-2,max(hrs)+4))+
-  scale_y_continuous(limits=c(min(2^logFoldsPlotting$`Log fold change`),
-                              max(2^logFoldsPlotting$`Log fold change`)+0.2))+
+  scale_y_continuous(limits=c(min(foldsPlotting$`Fold change`),
+                              max(foldsPlotting$`Fold change`)+0.2))+
   geom_smooth(method='lm',formula=y~x,se=F)+
   scale_shape_manual(values=c(NA,16),guide='none')+
   labs(y='Fold change',title='All fold changes')+
@@ -180,25 +198,33 @@ if(plotWindow) foldsPlot
 
 ## Mean fold changes ####
 
-foldMeansPlot <- meanLogFolds |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=`Serum condition`))+
+meanFolds <- foldsPlotting |> 
+  group_by(Hours,`Serum condition`) |> 
+  summarise('Mean fold change'=mean(`Fold change`),
+            'CI min'=`Mean fold change` - seFC(`Fold change`,init),
+            'CI max'=`Mean fold change` + seFC(`Fold change`,init)) |> 
+  rowwise() |> 
+  mutate(plot=any(Hours!=2,`Serum condition`=='10.0%'))
+
+foldMeansPlot <- meanFolds |> 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=`Serum condition`))+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`CI min`, ymax=`CI max`),width=max(hrs)/10)+
   scale_x_continuous(breaks=c(0,hrs),limits=c(-2,max(hrs)+4))+
-  scale_y_continuous(limits=c(min(2^logFoldsPlotting$`Log fold change`),
-                              max(2^logFoldsPlotting$`Log fold change`)+0.2))+
+  scale_y_continuous(limits=c(min(foldsPlotting$`Fold change`),
+                              max(foldsPlotting$`Fold change`)+0.2))+
   labs(y='Fold change',title='Mean fold changes')+
   theme_bw()
 
 if(plotWindow) foldMeansPlot
 
-foldMeansPlot0.1 <- meanLogFolds |> 
+foldMeansPlot0.1 <- meanFolds |> 
   filter(`Serum condition`=='0.1%') |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`))+
+  ggplot(aes(x=Hours,y=`Mean fold change`))+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`CI min`, ymax=`CI max`),width=max(hrs)/10)+
   scale_x_continuous(breaks=c(0,hrs),limits=c(-2,max(hrs)+4))+
   scale_y_continuous(limits=c(0,2.2))+
   labs(y='Fold change (relative to hour 2)',title='Mean fold changes in cell populations\nafter start of starvation conditions',subtitle='Prior experiment')+
@@ -236,8 +262,9 @@ for(c1 in 1:length(conds)){
     
     cPDs[[ind]] <- tibble('Serum condition'=conds[c1],
                            'MLFC'=xbar$`Mean log fold change`,
-                           'errBar min'=xbar$`errBar min`,
-                           'errBar max'=xbar$`errBar max`,
+                           'CI min'=xbar$`CI min`,
+                           'CI max'=xbar$`CI max`,
+                           'CI alpha'=xbar$`CI alpha`,
                            'Serum condition 2'=conds[c2],
                            'p-value'=test)
     ind <- ind+1
@@ -260,7 +287,7 @@ labels <- tibble(x=c(4,1.5),
 doublingsPlot <- cPDs |> 
   ggplot(aes(x=`Serum condition`,fill=`Serum condition`))+
   geom_col(aes(y=MLFC))+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=0.5)+
+  geom_errorbar(aes(ymin=`CI min`, ymax=`CI max`),width=0.5)+
   geom_line(data=coords[[1]],aes(x,y),inherit.aes=F)+
   geom_line(data=coords[[2]],aes(x,y),inherit.aes=F)+
   geom_text(data=labels,aes(x,y,label = lab),inherit.aes=F)+
@@ -274,6 +301,10 @@ if(plotWindow) doublingsPlot
 # Writing plots to file ####
 
 if(overwrite){
+  meanLogFolds |> 
+    select(!plot) |> 
+    write_csv('logFolds.csv')
+  
   absPlots <- absPlot + absMeansPlot
   logFoldsPlots <- logFoldsPlot + logFoldMeansPlot
   foldsPlots <- foldsPlot + foldMeansPlot

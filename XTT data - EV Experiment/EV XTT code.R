@@ -92,6 +92,23 @@ se <- function(data,times=2000){
   return(sd(b$t))
 }
 
+seFC <- function(A,A0){
+  FC <- mean(A)/mean(A0)
+  if(length(A)!=length(A0)){
+    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2) / length(A) )
+  }
+  else{
+    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2 + 2*cov(A,A0)/(mean(A)*mean(A0))) / length(A) )
+  }
+  return(err)
+}
+
+seRA <- function(A,Au){
+  S <- mean(A)/mean(Au)*100
+  err <- abs(S) * sqrt(((sd(A)/mean(A))^2 + (sd(Au)/mean(Au))^2 + 2*cov(A,Au)/(mean(A)*mean(Au))) / length(A) )
+  return(err)
+}
+
 means <- absorbPlotting |> 
   group_by(Hours,Treatment,Dose) |> 
   summarise('Mean Abs'=mean(Abs),'Mean Abs SE'=se(Abs)) |> 
@@ -161,35 +178,31 @@ if(plotWindow) absMeansPlotSepDose
 init <- absorb |> 
   filter(Hours==0 & Treatment=='No EVs') |> 
   select(Abs) |> 
-  pull() |> 
-  mean()
+  pull()
 
 folds <- absorb |> 
-  mutate('Fold change'=Abs/init) |> 
-  select(!Abs)
+  mutate('Fold change'=Abs/mean(init),.before=4)
 
-logFoldsPlotting <- folds |> 
-  mutate('Log fold change'=log2(`Fold change`)) |> 
-  select(!`Fold change`) |> 
+foldsPlotting <- folds |> 
   rowwise() |> 
   mutate(plot=any(Hours!=0,Treatment=='No EVs'))
 
-meanLogFolds <- logFoldsPlotting |> 
+meanFolds <- foldsPlotting |> 
   group_by(Hours,Treatment,Dose) |> 
-  summarise('Mean log fold change'=mean(`Log fold change`),
-            'errBar min'=`Mean log fold change` - se(`Log fold change`),
-            'errBar max'=`Mean log fold change` + se(`Log fold change`)) |> 
+  summarise('Mean fold change'=mean(`Fold change`),
+            'errBar min'=`Mean fold change` - seFC(Abs,init),
+            'errBar max'=`Mean fold change` + seFC(Abs,init)) |> 
   rowwise() |> 
   mutate(plot=any(Hours!=0,Treatment=='No EVs'))
 
 ## All fold changes ####
 
-foldsPlot <- logFoldsPlotting |> 
-  ggplot(aes(x=Hours,y=2^`Log fold change`,color=Treatment))+
+foldsPlot <- foldsPlotting |> 
+  ggplot(aes(x=Hours,y=`Fold change`,color=Treatment))+
   geom_point(aes(shape=plot))+
   scale_x_continuous(breaks=hrs,limits=c(-2,max(hrs)+4))+
-  scale_y_continuous(limits=c(min(2^logFoldsPlotting$`Log fold change`),
-                              max(2^logFoldsPlotting$`Log fold change`)+0.2))+
+  scale_y_continuous(limits=c(min(foldsPlotting$`Fold change`),
+                              max(foldsPlotting$`Fold change`)+0.2))+
   geom_smooth(aes(linetype=Dose),method='lm',formula=y~x,se=F)+ 
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)))+ 
   scale_shape_manual(values=c(NA,16),guide='none')+
@@ -210,18 +223,18 @@ if(plotWindow) foldsPlot
 lineCols2 <- lineCols
 names(lineCols2)[2] <- 'No mutation'
 
-foldMeansPlot <- meanLogFolds |> 
+foldMeansPlot <- meanFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
   mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)))+ 
   scale_color_discrete(type=lineCols2)+
   scale_x_continuous(breaks=hrs,limits=c(-2,max(hrs)+4))+
-  scale_y_continuous(limits=c(min(2^logFoldsPlotting$`Log fold change`),
-                              max(2^logFoldsPlotting$`Log fold change`)+0.2))+
+  scale_y_continuous(limits=c(min(foldsPlotting$`Fold change`),
+                              max(foldsPlotting$`Fold change`)+0.2))+
   labs(y='Fold change',title='Mean fold changes',color='EV mutation')+
   theme_bw()+
   theme(legend.key.width=unit(lkw,'cm'))
@@ -229,14 +242,14 @@ foldMeansPlot <- meanLogFolds |>
 if(plotWindow) foldMeansPlot
 
 
-foldMeansPlotSepTreat <- meanLogFolds |> 
+foldMeansPlotSepTreat <- meanFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
   mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Treatment))+
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)))+ 
   scale_color_discrete(type=lineCols2,guide='none')+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
@@ -247,14 +260,14 @@ foldMeansPlotSepTreat <- meanLogFolds |>
 if(plotWindow) foldMeansPlotSepTreat
 
 
-foldMeansPlotSepDose <- meanLogFolds |> 
+foldMeansPlotSepDose <- meanFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
   mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)),guide='none')+ 
   scale_color_discrete(type=lineCols2)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
@@ -263,14 +276,14 @@ foldMeansPlotSepDose <- meanLogFolds |>
 
 if(plotWindow) foldMeansPlotSepDose
 
-foldMeansPlotSepDoseSingle <- meanLogFolds |> 
+foldMeansPlotSepDoseSingle <- meanFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
   mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
   scale_color_discrete(type=lineCols2)+
   labs(y='Fold change (relative to hour 0)',title='Mean fold changes of cell populations after EV treatment',subtitle='Separated by dose',color='EV mutation')+
@@ -278,14 +291,14 @@ foldMeansPlotSepDoseSingle <- meanLogFolds |>
 
 if(plotWindow) foldMeansPlotSepDoseSingle
 
-foldMeansPlotSepDoseSingleExp <- meanLogFolds |> 
+foldMeansPlotSepDoseSingleExp <- meanFolds |> 
   mutate(Treatment=str_replace_all(Treatment,'Control','No mutation')) |> 
   mutate(Treatment=factor(Treatment,levels=c('No EVs','No mutation','PKD1 truncating','PKD2 truncating'))) |> 
-  ggplot(aes(x=Hours,y=2^`Mean log fold change`,color=Treatment))+ 
+  ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=2^`errBar min`, ymax=2^`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
   scale_y_continuous(limits=c(0,2.2))+
   scale_color_discrete(type=lineCols2)+
@@ -297,36 +310,33 @@ if(plotWindow) foldMeansPlotSepDoseSingleExp
 
 # Relative-survival (to No EVs) ####
 
-meanAbsNoEVs <- absorb |>
-  filter(Treatment=='No EVs') |> 
-  select(!Dose) |> 
-  group_by(Hours,Treatment) |> 
-  summarise(`Mean Abs`=mean(Abs))
 
 relAbs <- list()
 i <- 1
 for(h in 1:length(hrs)){
-  baseline <- meanAbsNoEVs |> 
-    ungroup(Hours) |> 
-    filter(Hours==hrs[h]) |> 
-    select(`Mean Abs`) |> 
+  AbsU <- absorb |> 
+    filter(Treatment=='No EVs',Hours==hrs[h]) |> 
+    select(Abs) |> 
     pull()
+  baseline <- mean(AbsU)
   if(baseline==0) next
   for(c in 2:length(conds)){
     for(d in 2:length(doses)){
       relAbs[[i]] <- absorb |> 
         filter(Hours==hrs[h] & Treatment==conds[c] & Dose==doses[d]) |> 
-        mutate(RelPercent=100*Abs/baseline) |> 
-        select(!Abs)
+        mutate(RelPercent=100*Abs/baseline,.before=4) |> 
+        mutate(AbsU=AbsU)
       i <- i+1
     }
   }
 }
 relAbs <- bind_rows(relAbs)
 
+
+
 meanRelAbs <- relAbs |> 
   group_by(Hours,Treatment,Dose) |> 
-  summarise('Mean Abs'=mean(RelPercent),'Mean Abs SE'=se(RelPercent))
+  summarise('Mean Abs'=mean(RelPercent),'Mean Abs SE'=seRA(Abs,AbsU))
 
 ## Comparing treatments ####
 
@@ -348,7 +358,7 @@ for(h in 2:3){
         pull()
       
       test <- wilcox.test(treated,ctrl,alternative='greater')$p.value
-      
+
       sigTests[[i]] <- tibble(Hours=hrs[h],
                               Treatment=conds[c],
                               Dose=doses[d],
@@ -397,7 +407,7 @@ for(h in 2:3){
       pull()
     
     test <- wilcox.test(PKD2,PKD1)$p.value
-    
+
     sigTestsP2[[i]] <- tibble(Hours=hrs[h],
                             Dose=doses[d],
                             mean=mean(PKD2),
@@ -439,7 +449,7 @@ meanRelAbsPlotSepDose <- meanRelAbs |>
   labs(y='Surviving cells (relative to untreated)',title='Relative-survival of cells after EV treatment',color='EV mutation',subtitle='Separated by dose')+
   geom_text(data=labels,mapping=aes(x,y,label = lab),inherit.aes=F)+
   geom_text(data=labelsP2,mapping=aes(x,y,label = lab),inherit.aes=F)+
-  scale_x_continuous(breaks=hrs,limits=c(0,60))+
+  scale_x_continuous(breaks=hrs,limits=c(-4,60))+
   scale_y_continuous(labels=scales::percent)+
   scale_color_manual(values=lineCols2)+
   theme_bw()
@@ -469,7 +479,7 @@ for(h in 2:3){
           pull()
         
         test <- wilcox.test(highDose,lowDose,alternative='greater')$p.value
-        
+
         sigTestsDose[[i]] <- tibble(Hours=hrs[h],
                                 Treatment=conds[c],
                                 'High Dose'=doses[hd],
@@ -530,7 +540,7 @@ meanRelAbsPlotSepTreat <- meanRelAbs |>
   labs(y='Surviving cells (relative to untreated)',title='Relative-survival of cells after EV treatment',subtitle='Separated by EV mutation')+
   geom_text(data=labelsDose1,mapping=aes(x,y,label = lab),inherit.aes=F)+
   geom_text(data=labelsDose2,mapping=aes(x,y,label = lab),size=2.7,inherit.aes=F)+
-  scale_x_continuous(breaks=hrs,limits=c(0,60))+
+  scale_x_continuous(breaks=hrs,limits=c(-4,60))+
   scale_y_continuous(labels=scales::percent)+
   scale_color_manual(values=lineCols2,guide='none')+
   theme_bw()
