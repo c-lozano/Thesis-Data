@@ -1,11 +1,9 @@
 # Setup ####
 
 library(tidyverse)
-library(twopartm,include.only = 'FiellerRatio')
 library(patchwork)
-library(ggsignif)
 
-overwrite <- F
+overwrite <- T
 plotWindow <- F
 
 
@@ -70,15 +68,14 @@ se <- function(data,times=2000){
   return(sd(b$t))
 }
 
-seFC <- function(A,A0){
-  FC <- mean(A)/mean(A0)
-  if(length(A)!=length(A0)){
-    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2) / length(A) )
+seFC <- function(dataA,dataA0,times=100000){
+  est <- rep(NA,times)
+  for(b in 1:times){
+    A <- sample(dataA,replace=T)
+    A0 <- sample(dataA0,replace=T)
+    est[b] <- mean(A)/mean(A0)
   }
-  else{
-    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2 + 2*cov(A,A0)/(mean(A)*mean(A0))) / length(A) )
-  }
-  return(err)
+  return(sd(est))
 }
 
 means <- absorbPlotting |> 

@@ -92,21 +92,24 @@ se <- function(data,times=2000){
   return(sd(b$t))
 }
 
-seFC <- function(A,A0){
-  FC <- mean(A)/mean(A0)
-  if(length(A)!=length(A0)){
-    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2) / length(A) )
+seFC <- function(dataA,dataA0,times=100000){
+  est <- rep(NA,times)
+  for(b in 1:times){
+    A <- sample(dataA,replace=T)
+    A0 <- sample(dataA0,replace=T)
+    est[b] <- mean(A)/mean(A0)
   }
-  else{
-    err <- abs(FC) * sqrt( ((sd(A)/mean(A))^2 + (sd(A0)/mean(A0))^2 + 2*cov(A,A0)/(mean(A)*mean(A0))) / length(A) )
-  }
-  return(err)
+  return(sd(est))
 }
 
-seRA <- function(A,Au){
-  S <- mean(A)/mean(Au)*100
-  err <- abs(S) * sqrt(((sd(A)/mean(A))^2 + (sd(Au)/mean(Au))^2 + 2*cov(A,Au)/(mean(A)*mean(Au))) / length(A) )
-  return(err)
+seRA <- function(dataA,dataAu,times=100000){
+  est <- rep(NA,times)
+  for(b in 1:times){
+    A <- sample(dataA,replace=T)
+    Au <- sample(dataAu,replace=T)
+    est[b] <- 100*mean(A)/mean(Au)
+  }
+  return(sd(est))
 }
 
 means <- absorbPlotting |> 
@@ -190,8 +193,7 @@ foldsPlotting <- folds |>
 meanFolds <- foldsPlotting |> 
   group_by(Hours,Treatment,Dose) |> 
   summarise('Mean fold change'=mean(`Fold change`),
-            'errBar min'=`Mean fold change` - seFC(Abs,init),
-            'errBar max'=`Mean fold change` + seFC(Abs,init)) |> 
+            'Mean fold change SE'=seFC(Abs,init)) |> 
   rowwise() |> 
   mutate(plot=any(Hours!=0,Treatment=='No EVs'))
 
@@ -229,7 +231,7 @@ foldMeansPlot <- meanFolds |>
   ggplot(aes(x=Hours,y=`Mean fold change`,color=Treatment))+ 
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`Mean fold change`-`Mean fold change SE`, ymax=`Mean fold change`+`Mean fold change SE`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)))+ 
   scale_color_discrete(type=lineCols2)+
   scale_x_continuous(breaks=hrs,limits=c(-2,max(hrs)+4))+
@@ -249,7 +251,7 @@ foldMeansPlotSepTreat <- meanFolds |>
   facet_grid(cols=vars(Treatment))+
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`Mean fold change`-`Mean fold change SE`, ymax=`Mean fold change`+`Mean fold change SE`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)))+ 
   scale_color_discrete(type=lineCols2,guide='none')+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
@@ -267,7 +269,7 @@ foldMeansPlotSepDose <- meanFolds |>
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(aes(linetype=Dose),linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`Mean fold change`-`Mean fold change SE`, ymax=`Mean fold change`+`Mean fold change SE`),width=max(hrs)/10)+
   scale_linetype_manual(values=c('solid','dotted','dotdash','longdash'),name=bquote('Dose'~(mu*g/mL)),guide='none')+ 
   scale_color_discrete(type=lineCols2)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
@@ -283,7 +285,7 @@ foldMeansPlotSepDoseSingle <- meanFolds |>
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`Mean fold change`-`Mean fold change SE`, ymax=`Mean fold change`+`Mean fold change SE`),width=max(hrs)/10)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
   scale_color_discrete(type=lineCols2)+
   labs(y='Fold change (relative to hour 0)',title='Mean fold changes of cell populations after EV treatment',subtitle='Separated by dose',color='EV mutation')+
@@ -298,7 +300,7 @@ foldMeansPlotSepDoseSingleExp <- meanFolds |>
   facet_grid(cols=vars(Dose),labeller='doseNamer')+
   geom_point(size=2)+
   geom_path(linewidth=1.1)+
-  geom_errorbar(aes(ymin=`errBar min`, ymax=`errBar max`),width=max(hrs)/10)+
+  geom_errorbar(aes(ymin=`Mean fold change`-`Mean fold change SE`, ymax=`Mean fold change`+`Mean fold change SE`),width=max(hrs)/10)+
   scale_x_continuous(breaks=hrs,limits=c(-4,max(hrs)+4))+
   scale_y_continuous(limits=c(0,2.2))+
   scale_color_discrete(type=lineCols2)+
