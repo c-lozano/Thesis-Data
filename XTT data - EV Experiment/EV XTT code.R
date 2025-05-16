@@ -10,7 +10,7 @@ library(patchwork)
 library(pacman)
 library(knitr)
 
-overwrite <- F # Change to TRUE to overwrite plots in /../figures/ with new plots
+overwrite <- T # Change to TRUE to overwrite plots in /../figures/ with new plots
 plotWindow <- F # Change to TRUE to show plots in RStudio window
 
 lkw <- 1.5 # legend key width
@@ -457,6 +457,7 @@ meanRelAbsPlotSepDose <- meanRelAbs |>
   theme_bw()
 
 if(plotWindow) meanRelAbsPlotSepDose
+if(overwrite) meanRelAbsPlotSepDose <- meanRelAbsPlotSepDose + scale_color_manual(values=lineCols2,guide='none')
 
 
 ## Comparing doses ####
@@ -548,6 +549,7 @@ meanRelAbsPlotSepTreat <- meanRelAbs |>
   theme_bw()
 
 if(plotWindow) meanRelAbsPlotSepTreat
+if(overwrite) meanRelAbsPlotSepTreat <- meanRelAbsPlotSepTreat + scale_color_manual(values=lineCols2) + theme(axis.title.y=element_blank())
 
 # Writing plots to file ####
 
@@ -556,7 +558,7 @@ if(overwrite){
   foldsPlots <- foldsPlot + foldMeansPlot
   absPlotsSep <- absMeansPlotSepTreat / absMeansPlotSepDose
   foldsPlotsSep <- foldMeansPlotSepTreat / foldMeansPlotSepDose
-  meanRelAbsPlots <- meanRelAbsPlotSepDose / meanRelAbsPlotSepTreat
+  meanRelAbsPlots <- meanRelAbsPlotSepDose + meanRelAbsPlotSepTreat
   
   figs <- c('absPlots',
             'foldsPlots',
@@ -581,8 +583,8 @@ if(overwrite){
   folderpath <- paste(getwd(),'/figures/', sep='')
   dir.create(folderpath)
   
-  widths <- c(rep(3000,2),rep(3000,4),rep(1700,3))
-  heights <- c(rep(1120,2),rep(2240,2),rep(1000,4),2000)
+  widths <- c(rep(3000,2),rep(3000,3),2500,rep(1700,2),2800)
+  heights <- c(rep(1120,2),rep(2240,2),rep(1000,4),1000)
   
   for (i in 1:length(figs)) {
     fig <- figs[i]
